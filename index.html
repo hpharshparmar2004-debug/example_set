@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RGCSM Online Exam</title>
+<style>
+  :root{--bg1:#c3a9f5;--bg2:#e6d7ff}
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#111}
+  .container{max-width:900px;margin:24px auto;padding:20px;background:rgba(255,255,255,0.85);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.08)}
+  h1,h2{margin:4px 0 12px}
+  input[type=text],input[type=password]{width:100%;padding:10px;margin:6px 0;border-radius:6px;border:1px solid #bbb}
+  button{padding:10px 14px;border-radius:8px;border:none;background:#4b6cf6;color:#fff;cursor:pointer}
+  #questionNav{margin-top:12px}
+  .circle{display:inline-block;width:26px;height:26px;border-radius:50%;line-height:26px;text-align:center;margin:3px;background:#d9534f;color:#fff;cursor:pointer;font-size:13px}
+  .circle.answered{background:#28a745}
+  #timer{font-weight:600}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>RGCSM Online Exam</h1>
+  <div id="loginPage">
+    <h2>Login</h2>
+    <input id="username" type="text" placeholder="Username (e.g., rgcsm001)" autocomplete="off">
+    <input id="password" type="password" placeholder="Password (e.g., 001)" autocomplete="off">
+    <button onclick="login()">Login</button>
+    <p id="loginMsg" style="color:red"></p>
+  </div>
+
+  <div id="quizPage" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>Welcome, <span id="displayUser"></span></h2>
+      <div id="timer">Time: 60:00</div>
+    </div>
+
+    <div id="questionArea" style="margin-top:12px"></div>
+
+    <div style="margin-top:12px">
+      <button onclick="prevQuestion()">Previous</button>
+      <button onclick="nextQuestion()">Next</button>
+      <button onclick="submitQuiz()" style="background:#198754">Submit</button>
+    </div>
+
+    <div id="questionNav"></div>
+  </div>
+
+  <div id="submitPage" style="display:none">
+    <h2>Exam Submitted</h2>
+    <p>Your exam has been submitted successfully.</p>
+    <p>Username: <span id="finalUser"></span></p>
+    <p>Score: <span id="finalScore"></span>/100</p>
+  </div>
+</div>
+
+<script>
+const allQuestions = [
+  {q: "Sample Q1: What is 2+2?", options:["1","2","3","4"], ans: "4"},
+  {q: "Sample Q2: HTML stands for?", options:["Hyper Text Markup","High Text Mark","Hyper Tab Markup","None"], ans: "Hyper Text Markup"},
+  // ... add up to 500 questions
+];
+
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+function getUniqueRandomQuestions(){
+  shuffleArray(allQuestions);
+  return allQuestions.slice(0,100);
+}
+
+let quizQuestions = [];
+let userAnswers = [];
+let currentQ = 0;
+let timerInterval;
+
+function login(){
+  const user = document.getElementById('username').value.trim();
+  const pass = document.getElementById('password').value.trim();
+  const loginMsg = document.getElementById('loginMsg');
+  loginMsg.innerText = '';
+
+  const match = user.match(/^rgcsm(\d{3})$/);
+  if(!match || match[1] !== pass){
+    loginMsg.innerText = 'Invalid Login';
+    return;
+  }
+
+  quizQuestions = getUniqueRandomQuestions();
+  userAnswers = Array(quizQuestions.length).fill(null);
+  currentQ = 0;
+
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('quizPage').style.display = 'block';
+  document.getElementById('displayUser').innerText = user;
+  renderQuestion();
+  renderNav();
+  startTimer(60*60);
+}
+
+function renderQuestion(){
+  const q = quizQuestions[currentQ];
+  let html = `<h3>Q${currentQ+1}: ${q.q}</h3>`;
+  q.options.forEach(opt => {
+    const checked = (userAnswers[currentQ] === opt) ? 'checked' : '';
+    html += `<label style="display:block;margin:6px 0;"><input type=\"radio\" name=\"opt\" value=\"${opt}\" ${checked} onclick=\"saveAnswer('${encodeURIComponent(opt)}')\"> ${opt}</label>`;
+  });
+  document.getElementById('questionArea').innerHTML = html;
+}
+
+function saveAnswer(opt){
+  userAnswers[currentQ] = decodeURIComponent(opt);
+  updateNavCircle(currentQ);
+}
+
+function nextQuestion(){ if(currentQ < quizQuestions.length - 1){ currentQ++; renderQuestion(); }}
+function prevQuestion(){ if(currentQ > 0){ currentQ--; renderQuestion(); }}
+
+function renderNav(){
+  let nav = document.getElementById('questionNav');
+  nav.innerHTML = '';
+  for(let i=0;i<quizQuestions.length;i++){
+    const div = document.createElement('div');
+    div.className = 'circle';
+    div.id = 'q' + i;
+    div.innerText = (i+1);
+    div.onclick = (function(i){ return function(){ currentQ = i; renderQuestion(); }})(i);
+    nav.appendChild(div);
+  }
+}
+function updateNavCircle(i){
+  const el = document.getElementById('q' + i);
+  if(el){ if(userAnswers[i] != null) el.classList.add('answered'); else el.classList.remove('answered'); }
+}
+
+function startTimer(seconds){
+  clearInterval(timerInterval);
+  let s = seconds;
+  function tick(){
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    document.getElementById('timer').innerText = 'Time: ' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+    if(s <= 0){ clearInterval(timerInterval); submitQuiz(); }
+    s--;
+  }
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function submitQuiz(){
+  clearInterval(timerInterval);
+  const user = document.getElementById('displayUser').innerText;
+  let score = 0;
+  for(let i=0;i<quizQuestions.length;i++){
+    if(userAnswers[i] === quizQuestions[i].ans) score++;
+  }
+  document.getElementById('quizPage').style.display='none';
+  document.getElementById('submitPage').style.display='block';
+  document.getElementById('finalUser').innerText = user;
+  document.getElementByI('finalScore').innerText = score;
+}
+
+// Basic protections
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => { if(e.ctrlKey && ['u','s','p','c','v'].includes(e.key.toLowerCase())) e.preventDefault(); if(e.key==='F12') e.preventDefault(); });
+</script>
+</body>
+</html>
